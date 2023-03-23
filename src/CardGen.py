@@ -4,9 +4,9 @@ import csv
 import os
 from shutil import copyfile
 
-
 stdfontsize = 30
 font = ImageFont.truetype("../data/Chusung.ttf", stdfontsize)
+
 
 class ImageInfo:
     def __init__(self, type, classText, sunCost, coinCost, name, desciption, cardID):
@@ -18,13 +18,13 @@ class ImageInfo:
         self.description = desciption
         self.cardID = cardID
 
+
 # (125,139,152)
-
-
 standardWhiteColor = (251, 240, 217)
 standardBlackColor = (65, 65, 65)
 
-def GenImage(info:ImageInfo, outputDir:str):
+
+def GenImage(info: ImageInfo, outputDir: str):
     def DrawText(text, fontsize, xy, colorRGB, anchor):
         font = ImageFont.truetype("../data/Chusung.ttf", fontsize)
         draw.text(xy, text, fill=colorRGB, font=font, anchor=anchor)
@@ -38,8 +38,6 @@ def GenImage(info:ImageInfo, outputDir:str):
             height = fontsize
             DrawText(line, fontsize, (xy[0], y_text), colorRGB, anchor)
             y_text += height * 1.25
-
-
 
     if info.type == "化学":
         templateDir = "化学.png"
@@ -77,7 +75,7 @@ def GenImage(info:ImageInfo, outputDir:str):
     draw = ImageDraw.Draw(img)
 
     # classText
-    DrawText(info.classText, 64, (64,75), classTextColor, "lt")
+    DrawText(info.classText, 64, (64, 75), classTextColor, "lt")
 
     # coinCost
     DrawText(info.coinCost, 56, (551, 102), standardWhiteColor, "lt")
@@ -85,13 +83,11 @@ def GenImage(info:ImageInfo, outputDir:str):
     # sunCost
     DrawText(info.sunCost, 56, (660, 95), standardWhiteColor, "lt")
 
-
     # name
     DrawText(info.name, 72, (395, 719), cardNameColor, "mm")
 
     # discription
-    DrawMultilineText(info.description,
-             48, (100, 864), descriptionColor, "lm")
+    DrawMultilineText(info.description, 48, (100, 864), descriptionColor, "lm")
 
     fullIconDir = "../data/CardIcon/{0}.png".format(info.cardID)
     if os.path.exists(fullIconDir):
@@ -134,7 +130,7 @@ OUTPUT_DIR = "../output/v0.603/"
 CARDBACK_DIR = "../data/back.png"
 
 initialDeckDict = dict()
-with open(INITIAL_DECK_SETTING, newline='', encoding="utf-8") as initialSettingFile:
+with open(INITIAL_DECK_SETTING, newline="", encoding="utf-8") as initialSettingFile:
     initialString = initialSettingFile.readline()
     cardList = initialString.split(",")
     for pairString in cardList:
@@ -145,7 +141,7 @@ with open(INITIAL_DECK_SETTING, newline='', encoding="utf-8") as initialSettingF
 print("初始套牌：" + str(initialDeckDict))
 
 
-with open(INPUT_DIR, newline='', encoding="utf-8") as csvfile:
+with open(INPUT_DIR, newline="", encoding="utf-8") as csvfile:
     reader = csv.reader(csvfile)
     next(reader)  # 跳过第一行，即标题行
     completed = 0
@@ -168,23 +164,39 @@ with open(INPUT_DIR, newline='', encoding="utf-8") as csvfile:
         description = row[5]
         repeatCount = int(row[6])
         cardID = int(row[7])
-        imageInfo = ImageInfo(type, classText, sunCost, coinCost, name, description, cardID)
+        imageInfo = ImageInfo(
+            type, classText, sunCost, coinCost, name, description, cardID
+        )
         if TTS_DE_MODE:
             if row[2] == "常驻":
-                outputDir = os.path.join(OUTPUT_DIR, "onBoard", "{0:0>2}x card_{1}.png".format(repeatCount, cardID))
+                outputDir = os.path.join(
+                    OUTPUT_DIR,
+                    "onBoard",
+                    "{0:0>2}x card_{1}.png".format(repeatCount, cardID),
+                )
                 GenImage(imageInfo, outputDir)
             else:
-                outputDir = os.path.join(OUTPUT_DIR, "market", "{0:0>2}x card_{1}.png".format(repeatCount, cardID))
+                outputDir = os.path.join(
+                    OUTPUT_DIR,
+                    "market",
+                    "{0:0>2}x card_{1}.png".format(repeatCount, cardID),
+                )
                 GenImage(imageInfo, outputDir)
 
             # 生成初始卡组
             if cardID in initialDeckDict.keys():
-                outputDir = os.path.join(OUTPUT_DIR, "initialDeck", "{0:0>2}x card_{1}.png".format(initialDeckDict[cardID], cardID))
+                outputDir = os.path.join(
+                    OUTPUT_DIR,
+                    "initialDeck",
+                    "{0:0>2}x card_{1}.png".format(initialDeckDict[cardID], cardID),
+                )
                 GenImage(imageInfo, outputDir)
 
         else:
             for i in range(repeatCount):
-                outputDir = os.path.join(OUTPUT_DIR, "card_{0}_{1}.png".format(cardId, i+1))
+                outputDir = os.path.join(
+                    OUTPUT_DIR, "card_{0}_{1}.png".format(cardID, i + 1)
+                )
                 GenImage(imageInfo, outputDir)
         completed += 1
 
@@ -193,5 +205,3 @@ with open(INPUT_DIR, newline='', encoding="utf-8") as csvfile:
         copyfile(CARDBACK_DIR, os.path.join(OUTPUT_DIR, "market", "00 Back.png"))
         copyfile(CARDBACK_DIR, os.path.join(OUTPUT_DIR, "onBoard", "00 Back.png"))
         copyfile(CARDBACK_DIR, os.path.join(OUTPUT_DIR, "initialDeck", "00 Back.png"))
-
-
