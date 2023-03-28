@@ -1,12 +1,12 @@
 {
-    "TTS_DE_MODE": true,
+    "GEN_MODE": "tts",
 
-    "data_dir": "your_project_dir/mad-roots/data",
+    "data_dir": "D:/MadRoots/Repository/mad-roots/data",
     "input_csv_filename": "cardInfo.csv",
     "initial_deck_setting": "initialDeck.txt",
     "cardback_file_name": "back.png",
-    "version": "v0.604",
+    "version": "v0.606",
     "ttf": "Chusung.ttf",
 
-    "output_dir": "your_project_dir/mad-roots/output"
+    "output_dir": "D:/MadRoots/Repository/mad-roots/output"
 }
