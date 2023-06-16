@@ -3,10 +3,13 @@
 
     "data_dir": "your_project_dir/mad-roots/data",
     "input_csv_filename": "cardInfo.csv",
+    "input_event_csv_filename": "eventInfo.csv",
     "initial_deck_setting": "initialDeck.txt",
     "cardback_file_name": "back.png",
-    "version": "v0.606",
+    "version": "v0.10.3",
     "ttf": "Chusung.ttf",
+
+    "start_setting_path": "StartSetting",
 
     "output_dir": "your_project_dir/mad-roots/output"
 }
