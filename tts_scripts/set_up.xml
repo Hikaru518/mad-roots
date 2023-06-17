@@ -1,0 +1,8 @@
+<button 
+    onClick="setUp" 
+    position="0 0 -30" 
+    width="400"
+    height="200"
+    fontSize="72">
+    Set Up
+</button>
