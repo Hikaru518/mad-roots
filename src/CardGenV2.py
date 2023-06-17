@@ -1,13 +1,14 @@
 from PIL import Image, ImageDraw, ImageFont
-from PIL.ImageFont import FreeTypeFont
 import textwrap
 import csv
 import os
 from shutil import copyfile
-import json
-from src.tools import read_json
 from pathlib import Path
 from pprint import pprint
+from src.tools import Config, PasteImageInTTSFormat
+from src.ColorMap import COLOR_MAP
+from enum import Enum
+from typing import List
 
 ############################################
 # GEN_MODE:
@@ -29,62 +30,20 @@ from pprint import pprint
 
 
 # (125,139,152)
-standardWhiteColor = (251, 240, 217)
-standardBlackColor = (65, 65, 65)
+standardWhiteColor = COLOR_MAP["standardWhiteColor"]
+standardBlackColor = COLOR_MAP["standardBlackColor"]
 
 
-class Config(object):
-    def __init__(self, config_file_path: str) -> None:
-        config_data = read_json(config_file_path)
-
-        # TTS MODE
-        self.gen_mode = config_data["GEN_MODE"]
-
-        # input and config
-        self.data_dir = Path(config_data["data_dir"]).absolute()
-        self.input_csv_filename = config_data["input_csv_filename"]
-        self.input_event_csv_filename = config_data["input_event_csv_filename"]
-        self.input_csv_filepath = str(self.data_dir / self.input_csv_filename)
-        self.input_event_csv_filepath = str(self.data_dir / self.input_event_csv_filename)
-        self.initial_deck_setting = str(
-            self.data_dir / config_data["initial_deck_setting"]
-        )
-        self.cardback_file_path = str(self.data_dir / config_data["cardback_file_name"])
-
-        self.ttf = config_data["ttf"]
-
-
-        # start settings
-        self.start_setting_path = self.data_dir / config_data["start_setting_path"]
-
-        # output
-        self.version = config_data["version"]
-        self.output_dir = Path(config_data["output_dir"]).absolute()
-        self.output_dir_with_version = str(self.output_dir / self.version)
-
-        # font setting
-        self.stdfontsize = 30
-        font_path = Path(self.data_dir / self.ttf).absolute()
-        self.font = ImageFont.truetype(str(font_path), self.stdfontsize)
-
-    @classmethod
-    def get_default_config_path(cls):
-        current_file_path = Path(os.path.abspath(__file__))
-        config_path = current_file_path.parent.parent / "config/config.json"
-        return str(config_path)
-
-    def to_dict(self):
-        return {
-            "TTS_DE_MODE": self.gen_mode,
-            "INPUT_CSV_FILE": self.input_csv_filepath,
-            "INITIAL_DECK_SETTING": self.initial_deck_setting,
-            "OUTPUT_DIR": self.output_dir_with_version,
-            "CARDBACK_DIR": self.cardback_file_path,
-        }
+class GenModeEnum(Enum):
+    TTS_DECK_EDITOR = "ttsde"
+    TTS = "tts"
+    RAW = "raw"
 
 
 class ImageInfo:
-    def __init__(self, type, classText, sunCost, coinCost, name, desciption, cardID):
+    def __init__(
+        self, type, classText, sunCost, coinCost, name, desciption, cardID, repeat_count
+    ):
         self.type = type
         self.classText = classText
         self.sunCost = sunCost
@@ -92,15 +51,13 @@ class ImageInfo:
         self.name = name
         self.description = desciption
         self.cardID = cardID
+        self.repeat_count = repeat_count
 
-class EventImageInfo:
-    def __init__(self, season, eventType, name, description, eventID):
-        self.season = season
-        self.eventType = eventType
-        self.name = name
-        self.description = description
-        self.eventID = eventID
-
+    @classmethod
+    def has_type(cls, type: str):
+        if type in ["化学", "机械", "巫术", "自然", "神秘"]:
+            return True
+        return False
 
 
 def GenImage(info: ImageInfo, outputDir: str, config: Config):
@@ -120,36 +77,12 @@ def GenImage(info: ImageInfo, outputDir: str, config: Config):
             DrawText(line, fontsize, (xy[0], y_text), colorRGB, anchor)
             y_text += height * 1.25
 
-    if info.type == "化学":
-        templateCode = "化学"
-        classTextColor = (29, 48, 161)
-        descriptionColor = (125, 139, 151)
-        cardNameColor = standardWhiteColor
-    elif info.type == "机械":
-        templateCode = "机械"
-        classTextColor = (103, 64, 29)
-        descriptionColor = (153, 138, 111)
-        cardNameColor = standardWhiteColor
-    elif info.type == "巫术":
-        templateCode = "巫术"
-        classTextColor = (78, 19, 102)
-        descriptionColor = (124, 104, 125)
-        cardNameColor = standardWhiteColor
-    elif info.type == "自然":
-        templateCode = "自然"
-        classTextColor = (28, 75, 24)
-        descriptionColor = (80, 106, 54)
-        cardNameColor = standardWhiteColor
-    elif info.type == "神秘":
-        templateCode = "神秘"
-        classTextColor = (54, 54, 54)
-        descriptionColor = (118, 123, 129)
-        cardNameColor = standardBlackColor
-    else:
+    templateCode = info.type
+    if not ImageInfo.has_type(info.type):
         templateCode = "通用"
-        classTextColor = (90, 90, 90)
-        descriptionColor = (128, 139, 151)
-        cardNameColor = standardWhiteColor
+    classTextColor = COLOR_MAP[templateCode]["classTextColor"]
+    descriptionColor = COLOR_MAP[templateCode]["descriptionColor"]
+    cardNameColor = standardWhiteColor
 
     templateCode = "自然"
 
@@ -182,19 +115,18 @@ def GenImage(info: ImageInfo, outputDir: str, config: Config):
     # classText
     DrawText(info.classText, 40, (100, 48), classTextColor, "lt")
 
-    if int(info.sunCost) > 0:   # sunCost
+    if int(info.sunCost) > 0:  # sunCost
         costIconDir = cardTemplateFolder / "Icon" / "阳光.png"
         costIcon = Image.open(costIconDir)
         cmx, cmy = costIcon.size
         img.paste(costIcon, (540, 44), mask=costIcon)
         DrawText(info.sunCost, 50, (588, 97), classTextColor, "mm")
-    else:   # coinCost
+    else:  # coinCost
         costIconDir = cardTemplateFolder / "Icon" / "银币.png"
         costIcon = Image.open(costIconDir)
         cmx, cmy = costIcon.size
         img.paste(costIcon, (540, 44), mask=costIcon)
         DrawText(info.coinCost, 50, (588, 97), classTextColor, "mm")
-
 
     # name
     DrawText(info.name, 60, (348, 602), cardNameColor, "mm")
@@ -202,381 +134,194 @@ def GenImage(info: ImageInfo, outputDir: str, config: Config):
     # discription
     DrawMultilineText(info.description, 42, (95, 723), descriptionColor, "lm")
 
-
-
-
     # 保存图片
     if outputDir:
         img.save(outputDir)
     return img
 
-def GenEventImage(info: EventImageInfo, outputDir: str, config: Config):
-    font = config.font
 
-    def DrawText(text, fontsize, xy, colorRGB, anchor):
-        usingFont = font.font_variant(size=fontsize)
-        draw.text(xy, text, fill=colorRGB, font=usingFont, anchor=anchor)
+class ImageConverter(object):
+    def __init__(self, config_path: str) -> None:
+        self.config = Config(config_path)
 
-    def DrawMultilineText(text, fontsize, xy, colorRGB, anchor):
-        lines = textwrap.wrap(text, width=16)
-        y_text = xy[1]
-        for line in lines:
-            # print(line)
-            bbox = font.getbbox(line)
-            height = fontsize
-            DrawText(line, fontsize, (xy[0], y_text), colorRGB, anchor)
-            y_text += height * 1.25
+        self.GEN_MODE = self.config.gen_mode
+        self.INPUT_CSV_FILE = self.config.input_csv_filepath  # input csv file
+        self.INITIAL_DECK_SETTING = self.config.initial_deck_setting
+        self.OUTPUT_DIR = self.config.output_dir_with_version
+        self.CARDBACK_DIR = self.config.cardback_file_path
+        pass
 
-    if info.season == 1:
-        backTemplateCode = "Back1"
-        frontTemplateCode = "Front1"
-        nameColor = (30, 27, 92)
-        descriptionColor = (52, 100, 135)
-        eventTypeColor = (46, 129, 62)
-    elif info.season == 2:
-        backTemplateCode = "Back2"
-        frontTemplateCode = "Front2"
-        nameColor = (30, 27, 92)
-        descriptionColor = (52, 100, 135)
-        eventTypeColor = (46, 129, 62)
-    elif info.season == 3:
-        backTemplateCode = "Back3"
-        frontTemplateCode = "Front3"
-        nameColor = (30, 27, 92)
-        descriptionColor = (52, 100, 135)
-        eventTypeColor = (46, 129, 62)
-    else:
-        raise AssertionError("Season Number Invalid Error")
+    def run(self):
+        initialDeckDict = self.__get_deck_dict()
+        image_info_list = self.__get_image_info_list()
 
-    cardTemplateFolder = Path(config.data_dir) / "CardTemplate" / "Event"
-    frontTemplateFullDir = cardTemplateFolder / f"{frontTemplateCode}.png"
-
-    img = Image.open(frontTemplateFullDir)
-    draw = ImageDraw.Draw(img)
-
-    # classText
-    DrawText(info.name, 88, (626, 75), nameColor, "mt")
-    DrawText(info.eventType, 56, (901, 150), eventTypeColor, "lt")
-    DrawMultilineText(info.description, 60, (135, 272), descriptionColor, "lt")
-
-    if outputDir:
-        img.save(outputDir)
-    return img
-
-
-
-def PasteImageInTTSFormat(fullImgList, backImg, cols = 10, rows = 7):
-    def PasteBatch(imgList, backImg, cols, rows):
-        # 获取图像的宽度和高度
-        width, height = imgList[0].size
-
-        # 创建网格图像
-        grid = Image.new('RGB', (width * cols, height * rows), color='black')
-
-        # 在网格中粘贴所有图像
-        for i in range(min(len(imgList), cols * rows - 1)):
-            x = (i % cols) * width
-            y = (i // cols) * height
-            grid.paste(imgList[i], (x, y))
-
-        # 在最后一个网格中粘贴背景图像
-        x = (cols - 1) * width
-        y = (rows - 1) * height
-        grid.paste(backImg, (x, y))
-
-        # 显示或保存图像
-        #grid.show()
-        #grid.save('output.png')
-
-        return grid
-
-    batchImgList = []
-    n = len(fullImgList)
-    imgsPerBatch = cols * rows - 1
-    batch_number = (n - 1) // imgsPerBatch + 1
-    for batch in range(batch_number):
-        if batch == batch_number - 1:
-            imgList = fullImgList[imgsPerBatch * batch:]
+        if self.GEN_MODE == GenModeEnum.TTS_DECK_EDITOR.value:
+            self.generate_tts_deck_editor(image_info_list, initialDeckDict)
+        elif self.GEN_MODE == GenModeEnum.TTS.value:
+            self.generate_tts(image_info_list, initialDeckDict)
+        elif self.GEN_MODE == GenModeEnum.RAW.value:
+            self.generate_raw_card(image_info_list)
         else:
-            imgList = fullImgList[imgsPerBatch * batch: imgsPerBatch * batch + imgsPerBatch]
-        batchImg = PasteBatch(imgList, backImg, cols, rows)
-        batchImgList.append(batchImg)
-    return batchImgList
+            print(f"GEN_MODE = {self.GEN_MODE}")
+            raise Exception("Error: GEN_MODE must be one of ttsde/tts/raw")
 
+    def generate_tts_deck_editor(
+        self, image_info_list: List[ImageInfo], initialDeckDict: dict
+    ):
+        # init output dir
+        if not os.path.exists(os.path.join(self.OUTPUT_DIR, "market")):
+            os.mkdir(os.path.join(self.OUTPUT_DIR, "market"))
+        if not os.path.exists(os.path.join(self.OUTPUT_DIR, "onBoard")):
+            os.mkdir(os.path.join(self.OUTPUT_DIR, "onBoard"))
+        if not os.path.exists(os.path.join(self.OUTPUT_DIR, "initialDeck")):
+            os.mkdir(os.path.join(self.OUTPUT_DIR, "initialDeck"))
 
-
-
-def convert_to_images(config_file: str, maxcount = 0):
-    config = Config(config_file)
-    pprint(config.to_dict())
-
-    # 参数
-    GEN_MODE = config.gen_mode
-    INPUT_CSV_FILE = config.input_csv_filepath  # input csv file
-    INITIAL_DECK_SETTING = config.initial_deck_setting
-    OUTPUT_DIR = config.output_dir_with_version
-    CARDBACK_DIR = config.cardback_file_path
-
-    initialDeckDict = dict()
-    with open(INITIAL_DECK_SETTING, newline="", encoding="utf-8") as initialSettingFile:
-        initialString = initialSettingFile.readline()
-        cardList = initialString.split(",")
-        for pairString in cardList:
-            pair = pairString.split(":")
-            initialCardId = int(pair[0])
-            initialCardNumber = int(pair[1])
-            initialDeckDict[initialCardId] = initialCardNumber
-    print("初始套牌：" + str(initialDeckDict))
-
-    with open(INPUT_CSV_FILE, newline="", encoding="utf-8") as csvfile:
-        reader = csv.reader(csvfile)
-        next(reader)  # 跳过第一行，即标题行
-        completed = 0
-
-        if not os.path.exists(OUTPUT_DIR):
-            Path(OUTPUT_DIR).mkdir()
-
-        if GEN_MODE == "ttsde":
-            if not os.path.exists(os.path.join(OUTPUT_DIR, "market")):
-                os.mkdir(os.path.join(OUTPUT_DIR, "market"))
-            if not os.path.exists(os.path.join(OUTPUT_DIR, "onBoard")):
-                os.mkdir(os.path.join(OUTPUT_DIR, "onBoard"))
-            if not os.path.exists(os.path.join(OUTPUT_DIR, "initialDeck")):
-                os.mkdir(os.path.join(OUTPUT_DIR, "initialDeck"))
-        elif GEN_MODE == "tts":
-            imgListMarket = []
-            imgListOnBoard = []
-            imgListInitial = []
-            if not os.path.exists(os.path.join(OUTPUT_DIR, "atlas")):
-                os.mkdir(os.path.join(OUTPUT_DIR, "atlas"))
-        else:
-            if not os.path.exists(os.path.join(OUTPUT_DIR, "cardRaw")):
-                os.mkdir(os.path.join(OUTPUT_DIR, "cardRaw"))
-
-        for row in reader:
-            # 处理每一行数据 type, classText, sunCost, coinCost, name, desciption, cardID
-            print("{0} {1}".format(completed, row))
-            type = row[2]
-            classText = row[2] + " - " + row[1]
-            sunCost = row[4]
-            coinCost = row[3]
-            name = row[0]
-            description = row[5]
-            repeatCount = int(row[6])
-            cardID = int(row[7])
-            imageInfo = ImageInfo(
-                type, classText, sunCost, coinCost, name, description, cardID
+        # generate card
+        for image_info in image_info_list:
+            output_dir_root = self.OUTPUT_DIR
+            file_name = "{0:0>2}x card_{1}.png".format(
+                image_info.repeat_count, image_info.cardID
             )
-            # ttsde模式: 生成单独的图像 名称为 "03x card_123.png"，用于在tts deck editor中处理
-            if GEN_MODE == "ttsde":
-                if row[2] == "常驻":
-                    outputDir = os.path.join(
-                        OUTPUT_DIR,
-                        "onBoard",
-                        "{0:0>2}x card_{1}.png".format(repeatCount, cardID),
-                    )
-                    GenImage(imageInfo, outputDir, config)
-                else:
-                    outputDir = os.path.join(
-                        OUTPUT_DIR,
-                        "market",
-                        "{0:0>2}x card_{1}.png".format(repeatCount, cardID),
-                    )
-                    GenImage(imageInfo, outputDir, config)
-
-                # 生成初始卡组
-                if cardID in initialDeckDict.keys():
-                    outputDir = os.path.join(
-                        OUTPUT_DIR,
-                        "initialDeck",
-                        "{0:0>2}x card_{1}.png".format(initialDeckDict[cardID], cardID),
-                    )
-                    GenImage(imageInfo, outputDir, config)
-
-            # tts模式：直接生成少数几张模板，每张模板为10x7，最后一张是牌背的tts导入格式。
-            elif GEN_MODE == "tts":
-                if row[2] == "常驻":
-
-                    image = GenImage(imageInfo, "", config)
-                    for _ in range(repeatCount):
-                        imgListOnBoard.append(image)
-                else:
-                    outputDir = os.path.join(
-                        OUTPUT_DIR,
-                        "market",
-                        "{0:0>2}x card_{1}.png".format(repeatCount, cardID),
-                    )
-                    image = GenImage(imageInfo, "", config)
-                    for _ in range(repeatCount):
-                        imgListMarket.append(image)
-
-                # 生成初始卡组
-                if cardID in initialDeckDict.keys():
-                    outputDir = os.path.join(
-                        OUTPUT_DIR,
-                        "initialDeck",
-                        "{0:0>2}x card_{1}.png".format(initialDeckDict[cardID], cardID),
-                    )
-                    image = GenImage(imageInfo, "", config)
-                    for _ in range(initialDeckDict[cardID]):
-                        imgListInitial.append(image)
-
-            # raw模式：生成若干图像，每张图像对应现实中的一张卡，方便打印（或许）
+            if image_info.type == "常驻":
+                outputDir = os.path.join(output_dir_root, "onBoard", file_name)
             else:
-                for i in range(repeatCount):
-                    outputDir = os.path.join(
-                        OUTPUT_DIR, "cardRaw", "card_{0}_{1}.png".format(cardID, i + 1)
-                    )
-                    GenImage(imageInfo, outputDir, config)
-            completed += 1
-            if maxcount > 0 and completed >= maxcount:
-                break
+                outputDir = os.path.join(output_dir_root, "market", file_name)
 
+            GenImage(image_info, outputDir, self.config)
 
-        # 后处理
-
-        # 卡背 png 图像
-        if GEN_MODE == "ttsde":
-            copyfile(CARDBACK_DIR, os.path.join(OUTPUT_DIR, "market", "00 Back.png"))
-            copyfile(CARDBACK_DIR, os.path.join(OUTPUT_DIR, "onBoard", "00 Back.png"))
-            copyfile(
-                CARDBACK_DIR, os.path.join(OUTPUT_DIR, "initialDeck", "00 Back.png")
-            )
-        # 拼接atlas大图并保存
-        elif GEN_MODE == "tts":
-            print("正在拼接大图，请稍等....")
-            backImg = Image.open(CARDBACK_DIR)
-            batchimgListMarket = PasteImageInTTSFormat(imgListMarket, backImg, 10, 7)
-            batchimgListOnBoard = PasteImageInTTSFormat(imgListOnBoard, backImg, 10, 7)
-            batchimgListInitial = PasteImageInTTSFormat(imgListInitial, backImg, 10, 7)
-            for i in range(len(batchimgListMarket)):
-                outputDir = os.path.join(OUTPUT_DIR, "atlas", "market_{0}.png".format(i + 1))
-                batchimgListMarket[i].save(outputDir)
-            print("1/3")
-            for i in range(len(batchimgListOnBoard)):
-                outputDir = os.path.join(OUTPUT_DIR, "atlas", "onBoard_{0}.png".format(i + 1))
-                batchimgListOnBoard[i].save(outputDir)
-            print("2/3")
-            for i in range(len(batchimgListInitial)):
-                outputDir = os.path.join(OUTPUT_DIR, "atlas", "initialDeck_{0}.png".format(i + 1))
-                batchimgListInitial[i].save(outputDir)
-            print("3/3")
-            print("拼接完成")
-
-
-def convert_to_event_images(config_file: str):
-    config = Config(config_file)
-    pprint(config.to_dict())
-
-    # 参数
-    GEN_MODE = config.gen_mode
-    INPUT_CSV_FILE = config.input_event_csv_filepath
-    OUTPUT_DIR = config.output_dir_with_version
-    DATA_DIR = config.data_dir
-
-    with open(INPUT_CSV_FILE, newline="", encoding="utf-8") as csvfile:
-        reader = csv.reader(csvfile)
-        next(reader)  # 跳过第一行，即标题行
-        completed = 0
-
-        if not os.path.exists(OUTPUT_DIR):
-            Path(OUTPUT_DIR).mkdir()
-
-        if GEN_MODE == "ttsde":
-            if not os.path.exists(os.path.join(OUTPUT_DIR, "season1")):
-                os.mkdir(os.path.join(OUTPUT_DIR, "season1"))
-            if not os.path.exists(os.path.join(OUTPUT_DIR, "season2")):
-                os.mkdir(os.path.join(OUTPUT_DIR, "season2"))
-            if not os.path.exists(os.path.join(OUTPUT_DIR, "season3")):
-                os.mkdir(os.path.join(OUTPUT_DIR, "season3"))
-        elif GEN_MODE == "tts":
-            imgListSeason1 = []
-            imgListSeason2 = []
-            imgListSeason3 = []
-            if not os.path.exists(os.path.join(OUTPUT_DIR, "atlas")):
-                os.mkdir(os.path.join(OUTPUT_DIR, "atlas"))
-        else:
-            if not os.path.exists(os.path.join(OUTPUT_DIR, "eventRaw")):
-                os.mkdir(os.path.join(OUTPUT_DIR, "eventRaw"))
-
-        for row in reader:
-            # 处理每一行数据 type, classText, sunCost, coinCost, name, desciption, cardID
-            print("{0} {1}".format(completed, row))
-            name = row[0]
-            season = int(row[1])
-            eventType = row[2]
-            description = row[3]
-            eventID = row[4]
-
-            eventInfo = EventImageInfo(season, eventType, name, description, eventID)
-            # ttsde模式: 生成单独的图像 名称为 "03x card_123.png"，用于在tts deck editor中处理
-            if GEN_MODE == "ttsde":
-                # TODO:待补充tts_de模式的事件生成
-                pass
-
-            # tts模式：直接生成少数几张模板，每张模板为10x7，最后一张是牌背的tts导入格式。
-            elif GEN_MODE == "tts":
-                outputDir = os.path.join(OUTPUT_DIR, f"season{season}", f"01x card_{eventID}.png")
-                image = GenEventImage(eventInfo, "", config)
-                if season == 1:
-                    imgListSeason1.append(image)
-                elif season == 2:
-                    imgListSeason2.append(image)
-                elif season == 3:
-                    imgListSeason3.append(image)
-
-
-            # raw模式：生成若干图像，每张图像对应现实中的一张卡，方便打印（或许）
-            else:
+            # 生成初始卡组
+            if image_info.cardID in initialDeckDict.keys():
                 outputDir = os.path.join(
-                    OUTPUT_DIR, "eventRaw", "event_{0}.png".format(eventID)
+                    self.OUTPUT_DIR,
+                    "initialDeck",
+                    "{0:0>2}x card_{1}.png".format(
+                        initialDeckDict[image_info.cardID], image_info.cardID
+                    ),
                 )
-                GenEventImage(eventInfo, outputDir, config)
-                pass
+                GenImage(image_info, outputDir, self.config)
 
-            completed += 1
+        copyfile(
+            self.CARDBACK_DIR, os.path.join(self.OUTPUT_DIR, "market", "00 Back.png")
+        )
+        copyfile(
+            self.CARDBACK_DIR, os.path.join(self.OUTPUT_DIR, "onBoard", "00 Back.png")
+        )
+        copyfile(
+            self.CARDBACK_DIR,
+            os.path.join(self.OUTPUT_DIR, "initialDeck", "00 Back.png"),
+        )
 
+    def generate_tts(self, image_info_list: List[ImageInfo], initialDeckDict: dict):
+        imgListMarket = []
+        imgListOnBoard = []
+        imgListInitial = []
+        if not os.path.exists(os.path.join(self.OUTPUT_DIR, "atlas")):
+            os.mkdir(os.path.join(self.OUTPUT_DIR, "atlas"))
 
-        # 后处理
+        for image_info in image_info_list:
+            image = GenImage(image_info, "", self.config)
+            if image_info.type == "常驻":
+                for _ in range(image_info.repeat_count):
+                    imgListOnBoard.append(image)
+            else:
+                for _ in range(image_info.repeat_count):
+                    imgListMarket.append(image)
 
-        # 卡背 png 图像
-        if GEN_MODE == "ttsde":
-            pass
+            # 生成初始卡组
+            if image_info.cardID in initialDeckDict.keys():
+                for _ in range(initialDeckDict[image_info.cardID]):
+                    imgListInitial.append(image)
 
-        # 拼接atlas大图并保存
-        elif GEN_MODE == "tts":
-            print("正在拼接大图，请稍等....")
-            backImgFolder = DATA_DIR / "CardTemplate" / "Event"
-            backImg1 = Image.open(backImgFolder / "Back1.png")
-            backImg2 = Image.open(backImgFolder / "Back2.png")
-            backImg3 = Image.open(backImgFolder / "Back3.png")
-            batchimgList1 = PasteImageInTTSFormat(imgListSeason1, backImg1, 3, 5)
-            batchimgList2 = PasteImageInTTSFormat(imgListSeason2, backImg2, 3, 5)
-            batchimgList3 = PasteImageInTTSFormat(imgListSeason3, backImg3, 3, 5)
-            for i in range(len(batchimgList1)):
-                outputDir = os.path.join(OUTPUT_DIR, "atlas", "EventS1_{0}.png".format(i + 1))
-                batchimgList1[i].save(outputDir)
-            print("1/3")
-            for i in range(len(batchimgList2)):
-                outputDir = os.path.join(OUTPUT_DIR, "atlas", "EventS2_{0}.png".format(i + 1))
-                batchimgList2[i].save(outputDir)
-            print("2/3")
-            for i in range(len(batchimgList3)):
-                outputDir = os.path.join(OUTPUT_DIR, "atlas", "EventS3_{0}.png".format(i + 1))
-                batchimgList3[i].save(outputDir)
-            print("3/3")
-            print("拼接完成")
+        print("正在拼接大图，请稍等....")
+        backImg = Image.open(self.CARDBACK_DIR)
+        batchimgListMarket = PasteImageInTTSFormat(imgListMarket, backImg, 10, 7)
+        batchimgListOnBoard = PasteImageInTTSFormat(imgListOnBoard, backImg, 10, 7)
+        batchimgListInitial = PasteImageInTTSFormat(imgListInitial, backImg, 10, 7)
+        for i in range(len(batchimgListMarket)):
+            outputDir = os.path.join(
+                self.OUTPUT_DIR, "atlas", "market_{0}.png".format(i + 1)
+            )
+            batchimgListMarket[i].save(outputDir)
+        print("1/3")
+        for i in range(len(batchimgListOnBoard)):
+            outputDir = os.path.join(
+                self.OUTPUT_DIR, "atlas", "onBoard_{0}.png".format(i + 1)
+            )
+            batchimgListOnBoard[i].save(outputDir)
+        print("2/3")
+        for i in range(len(batchimgListInitial)):
+            outputDir = os.path.join(
+                self.OUTPUT_DIR, "atlas", "initialDeck_{0}.png".format(i + 1)
+            )
+            batchimgListInitial[i].save(outputDir)
+        print("3/3")
+        print("拼接完成")
 
-            backImg1.save(os.path.join(OUTPUT_DIR, "atlas", "EventBackS1.png"))
-            backImg2.save(os.path.join(OUTPUT_DIR, "atlas", "EventBackS2.png"))
-            backImg3.save(os.path.join(OUTPUT_DIR, "atlas", "EventBackS3.png"))
+    def generate_raw_card(self, image_info_list: List[ImageInfo]):
+        for image_info in image_info_list:
+            for i in range(image_info.repeat_count):
+                outputDir = os.path.join(
+                    self.OUTPUT_DIR,
+                    "cardRaw",
+                    "card_{0}_{1}.png".format(image_info.cardID, i + 1),
+                )
+                GenImage(image_info, outputDir, self.config)
 
+    def __get_deck_dict(self) -> dict:
+        config = self.config
+        print("config is: ")
+        pprint(config.to_dict())
 
+        # 参数
+        initialDeckDict = dict()
+        with open(
+            self.INITIAL_DECK_SETTING, newline="", encoding="utf-8"
+        ) as initialSettingFile:
+            initialString = initialSettingFile.readline()
+            cardList = initialString.split(",")
+            for pairString in cardList:
+                pair = pairString.split(":")
+                initialCardId = int(pair[0])
+                initialCardNumber = int(pair[1])
+                initialDeckDict[initialCardId] = initialCardNumber
+        print("初始套牌：" + str(initialDeckDict))
+        return initialDeckDict
+
+    def __get_image_info_list(self) -> List[ImageInfo]:
+        result = list()  # type: List[ImageInfo]
+        with open(self.INPUT_CSV_FILE, newline="", encoding="utf-8") as csvfile:
+            reader = csv.reader(csvfile)
+            next(reader)  # 跳过第一行，即标题行
+            completed = 0
+            for row in reader:
+                # 处理每一行数据 type, classText, sunCost, coinCost, name, desciption, cardID
+                print("{0} {1}".format(completed, row))
+                type = row[2]
+                classText = row[2] + " - " + row[1]
+                sunCost = row[4]
+                coinCost = row[3]
+                name = row[0]
+                description = row[5]
+                repeatCount = int(row[6])
+                cardID = int(row[7])
+                imageInfo = ImageInfo(
+                    type,
+                    classText,
+                    sunCost,
+                    coinCost,
+                    name,
+                    description,
+                    cardID,
+                    repeatCount,
+                )
+                result.append(imageInfo)
+
+        return result
 
 
 if __name__ == "__main__":
     # default config path
     default_config_path = Config.get_default_config_path()
 
-    convert_to_images(default_config_path, maxcount=10)
-    #convert_to_event_images(default_config_path)
+    image_converter = ImageConverter(config_path=default_config_path)
+    image_converter.run()
