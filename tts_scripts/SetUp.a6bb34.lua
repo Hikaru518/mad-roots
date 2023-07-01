@@ -17,8 +17,6 @@ GOOD_SOIL_DECK = Global.getVar('GOOD_SOIL_DECK')
 BAD_SOIL_DECK = Global.getVar('BAD_SOIL_DECK')
 STONE_BAG = Global.getVar('STONE_BAG')
 
-
-
 math.randomseed(os.time())
 
 

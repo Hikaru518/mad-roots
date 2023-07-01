@@ -25,11 +25,6 @@ ROOT_MAP_DIFF = 1.61
 -- STONE BAG
 STONE_BAG = "53d565"
 
--- Items in deck, will be filled onLoad()
-SEED_GUID_LIST = {}
-VISIBLE_ROOT_LIST = {}
-ROOT_LIST = {}
-
 -- TAG
 NORMAL_ROOT_TAG = "normal_roots"
 VISIBLE_ROOT_TAG = "visible_roots"
