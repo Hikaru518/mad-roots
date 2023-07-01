@@ -33,9 +33,6 @@ function clean_normal_roots()
     local root_deck = getObjectFromGUID(ROOT_DECK)
     for i = 1, #normal_roots do
         local object = normal_roots[i]
-        if is_not_deck(object) then
-            print(is_in_map(object))
-        end
 
         if (
                 is_not_deck(object) and
@@ -55,9 +52,6 @@ function clean_visible_roots()
     local root_deck = getObjectFromGUID(VISIBLE_ROOT_DECK)
     for i = 1, #visible_roots do
         local object = visible_roots[i]
-        if is_not_deck(object) then
-            print(is_in_map(object))
-        end
 
         if (
                 is_not_deck(object) and
