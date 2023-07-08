@@ -8,7 +8,7 @@ import json
 from src.tools import read_json
 from pathlib import Path
 from pprint import pprint
-from CardGen import Config, PasteImageInTTSFormat
+from src.CardGenV2 import Config, PasteImageInTTSFormat
 
 
 class StartInfo:
