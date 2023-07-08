@@ -5,7 +5,8 @@ Install blind_watermark
 pip install blind-watermark
 ```
 ## add watermark
-Under water mark directory
+1. Modify watermark.json
+2. Under water mark directory
 ```bash
 python3 -m watermark --add input_directory/ --out output_directory/
 ```
@@ -13,7 +14,8 @@ The script will add watermark to images under `input_directory/` and its subdire
 Meanwhile, a len_wm.txt will be added to `output_directory/`, which records watermark length of all images.
 
 ## add watermark
-Under water mark directory
+1. Modify watermark.json
+2. Under water mark directory
 ```bash
 python3 -m watermark --extract extract_image --watermark_length watermark_length
 ```
