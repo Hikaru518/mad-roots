@@ -6,9 +6,10 @@ from shutil import copyfile
 from pathlib import Path
 from pprint import pprint
 from src.tools import Config, PasteImageInTTSFormat
-from src.ColorMap import COLOR_MAP
+from src.ColorMap import COLOR_MAP, COLOR_MAP_CMYK
 from enum import Enum
 from typing import List
+from CMYK_Converter import rgb_to_cmyk, normalize_cmyk
 
 ############################################
 # GEN_MODE:
@@ -30,8 +31,8 @@ from typing import List
 
 
 # (125,139,152)
-standardWhiteColor = COLOR_MAP["standardWhiteColor"]
-standardBlackColor = COLOR_MAP["standardBlackColor"]
+standardWhiteColor = COLOR_MAP_CMYK["standardWhiteColor"]
+standardBlackColor = COLOR_MAP_CMYK["standardBlackColor"]
 
 
 class GenModeEnum(Enum):
@@ -71,74 +72,59 @@ class ImageInfo:
 def GenImage(info: ImageInfo, outputDir: str, config: Config):
     font = config.font
 
-    def DrawText(text, fontsize, xy, colorRGB, anchor):
+    def DrawText(text, fontsize, xy, colorCMYK, anchor):
         usingFont = font.font_variant(size=fontsize)
-        draw.text(xy, text, fill=colorRGB, font=usingFont, anchor=anchor)
+        colorCMYK = normalize_cmyk(colorCMYK, 100, 255)
+        #print(colorCMYK)
+        draw.text(xy, text, fill=colorCMYK, font=usingFont, anchor=anchor)
 
-    def DrawMultilineText(text, fontsize, xy, colorRGB, anchor):
+    def DrawMultilineText(text, fontsize, xy, colorCMYK, anchor):
         lines = textwrap.wrap(text, width=12)
         y_text = xy[1]
         for line in lines:
             # print(line)
             bbox = font.getbbox(line)
             height = fontsize
-            DrawText(line, fontsize, (xy[0], y_text), colorRGB, anchor)
-            y_text += height * 1.25
+            DrawText(line, fontsize, (xy[0], y_text), colorCMYK, anchor)
+            y_text += height * 1.3
 
     templateCode = info.cardClass
     if not ImageInfo.has_cardClass(info.cardClass):
         templateCode = "常驻"
     if info.cardClass == "常驻" and info.cardType == "怪物":
         templateCode = "怪物"
-    classTextColor = COLOR_MAP[templateCode]["classTextColor"]
-    descriptionColor = COLOR_MAP[templateCode]["descriptionColor"]
+    classTextColor = COLOR_MAP_CMYK[templateCode]["classTextColor"]
+    descriptionColor = COLOR_MAP_CMYK[templateCode]["descriptionColor"]
     cardNameColor = standardWhiteColor
 
     #templateCode = "自然"
 
-    cardTemplateFolder = Path(config.data_dir) / "CardTemplateV2"
-    bottomLayerDir = cardTemplateFolder / "Template" / "BottomLayer.png"
-    templateDirL1 = cardTemplateFolder / "Template" / f"{templateCode}_Bg.png"
-    if templateCode == "怪物":
-        templateDirL2 = cardTemplateFolder / "Template" / f"{templateCode}.png"
-    else:
-        if info.cardType == "设备":
-            templateDirL2 = cardTemplateFolder / "Template" / f"{templateCode}_Facility.png"
-        else:
-            templateDirL2 = cardTemplateFolder / "Template" / f"{templateCode}_Action.png"
+    cardTemplateFolder = Path(config.data_dir) / "DiceconTemplate"
+    # bottomLayerDir = cardTemplateFolder / "Template" / "BottomLayer.png"
+    # templateDirL1 = cardTemplateFolder / "Template" / f"{templateCode}_Bg.png"
+    # if templateCode == "怪物":
+    #     templateDirL2 = cardTemplateFolder / "Template" / f"{templateCode}.png"
+    # else:
+    #     if info.cardType == "设备":
+    #         templateDirL2 = cardTemplateFolder / "Template" / f"{templateCode}_Facility.png"
+    #     else:
+    #         templateDirL2 = cardTemplateFolder / "Template" / f"{templateCode}_Action.png"
 
-    # bottomLayer 文字描述背景色
-    img = Image.open(bottomLayerDir)
+    templateDirR1 = cardTemplateFolder / "Cards" / f"card_{info.cardID}_1.tif"
+    templateDirR2 = cardTemplateFolder / "Cards" / f"card_{info.cardID}_1.tiff"
+
+    if os.path.exists(templateDirR1):
+        templateDirBackground = templateDirR1
+    elif os.path.exists(templateDirR2):
+        templateDirBackground = templateDirR2
+    else:
+        return
+
+    # template L1 底板
+    img = Image.open(templateDirBackground)
+    img = img.resize((697, 1087))
+    #img = img.convert("RGB")
     draw = ImageDraw.Draw(img)
-
-    # Layer 1 插图背景色
-    templateL1 = Image.open(templateDirL1)
-    img.paste(templateL1, (0, 0), mask=templateL1)
-
-    # 卡牌插图
-    fullImageDir = cardTemplateFolder / "Image" / f"{info.cardID}.png"
-    #print(fullImageDir)
-    if os.path.exists(fullImageDir):
-        cardImage = Image.open(fullImageDir)
-        cmx, cmy = cardImage.size
-
-        ''' 临时调整图像大小 '''
-        if cmx == 697:   #宽度=697 被认为是尺寸合适的图 不再调整
-            img.paste(cardImage, (0, 0), mask=cardImage)
-        elif cmx >= 900 or cmy >= 700:
-            cardImage = cardImage.resize((int(cmx * 0.43), int(cmy * 0.43)))
-            cmx, cmy = cardImage.size
-            img.paste(cardImage, (348 - cmx // 2, 15), mask=cardImage)
-        else:
-            cardImage = cardImage.resize((int(cmx * 0.88), int(cmy * 0.88)))
-            cmx, cmy = cardImage.size
-            img.paste(cardImage, (348 - cmx // 2, 350 - cmy // 2), mask=cardImage)
-    else:
-        pass
-
-    # Layer 2 卡牌外框
-    templateL2 = Image.open(templateDirL2)
-    img.paste(templateL2, (0, 0), mask=templateL2)
 
     # classIcon
     classIconDir = cardTemplateFolder / "Icon" / f"{templateCode}.png"
@@ -147,6 +133,7 @@ def GenImage(info: ImageInfo, outputDir: str, config: Config):
     img.paste(classIcon, (66 - cmx // 2, 67 - cmy // 2), mask=classIcon)
 
     # classText
+    #print("classtextcolor")
     DrawText(info.classText(), 38, (103, 48), classTextColor, "lt")
 
     if int(info.sunCost) > 0:  # sunCost
@@ -154,26 +141,30 @@ def GenImage(info: ImageInfo, outputDir: str, config: Config):
         costIcon = Image.open(costIconDir)
         cmx, cmy = costIcon.size
         img.paste(costIcon, (525, 36), mask=costIcon)
+        #print("standardBlackColor")
         DrawText(info.sunCost, 55, (590, 99), standardBlackColor, "mm")
     else:  # coinCost
         costIconDir = cardTemplateFolder / "Icon" / "银币.png"
         costIcon = Image.open(costIconDir)
         cmx, cmy = costIcon.size
         img.paste(costIcon, (537, 41), mask=costIcon)
+        #print("standardBlackColor")
         DrawText(info.coinCost, 55, (590, 99), standardBlackColor, "mm")
 
     # name
-    DrawText(info.name, 60, (348, 598), cardNameColor, "mm")
+    #print("cardNameColor")
+    DrawText(info.name, 60, (348, 602), cardNameColor, "mm")
 
     # discription
-    DrawMultilineText(info.description, 42, (95, 706), descriptionColor, "lm")
+    #print("descriptionColor")
+    DrawMultilineText(info.description, 42, (95, 723), descriptionColor, "lm")
 
     # 保存图片
     if outputDir:
         imgForceShaped = img.resize((684, 1044))
+        img = img.convert("CMYK")
         imgForceShaped.save(outputDir)
     return img
-
 
 class ImageConverter(object):
     def __init__(self, config_path: str) -> None:
@@ -313,7 +304,7 @@ class ImageConverter(object):
                 outputDir = os.path.join(
                     self.OUTPUT_DIR,
                     "cardRaw",
-                    "card_{0}_{1}.png".format(image_info.cardID, i + 1),
+                    "card_{0}_{1}.tiff".format(image_info.cardID, i + 1),
                 )
                 GenImage(image_info, outputDir, self.config)
 
@@ -322,7 +313,7 @@ class ImageConverter(object):
                     initialCardOutputDir = os.path.join(
                         self.OUTPUT_DIR,
                         "cardRaw",
-                        "cardInitial_{0}_{1}.png".format(image_info.cardID, i + 1),
+                        "cardInitial_{0}_{1}.tiff".format(image_info.cardID, i + 1),
                     )
                     GenImage(image_info, initialCardOutputDir, self.config)
 
@@ -385,3 +376,6 @@ if __name__ == "__main__":
 
     image_converter = ImageConverter(config_path=default_config_path)
     image_converter.run()
+
+
+

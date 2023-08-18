@@ -80,6 +80,7 @@ def PasteImageInTTSFormat(fullImgList, backImg, cols=10, rows=7):
         # 在最后一个网格中粘贴背景图像
         x = (cols - 1) * width
         y = (rows - 1) * height
+        backImg = backImg.resize((width, height))
         grid.paste(backImg, (x, y))
 
         # 显示或保存图像
