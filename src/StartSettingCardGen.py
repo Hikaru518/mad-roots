@@ -8,7 +8,10 @@ import json
 from src.tools import read_json
 from pathlib import Path
 from pprint import pprint
-from src.CardGenV2 import Config, PasteImageInTTSFormat
+
+from CardGenV2 import Config, PasteImageInTTSFormat
+
+
 
 
 class StartInfo:
@@ -58,11 +61,12 @@ def GenStartSettingCard(info: StartInfo, config: Config):
     for stoneIndex in info.stoneList:
         img.paste(stoneImg, LocateByIndex(info.size, stoneIndex, tileGapSize, tileOffset))
 
-    img.save(startSettingDataFolder / "cardTest1.png")
+    #img.save(startSettingDataFolder / "cardTest1.png")
     return img
 
 
-def gen_start_setting_card_atlas(config: Config):
+def GenStartSettingCardBatch(config: Config):
+    #print(config.start_setting_path)
     dataPath = Path(config.start_setting_path) / "startData.csv"
     genImgList = []
     with open(dataPath, newline="", encoding="utf-8") as csvfile:
@@ -77,15 +81,32 @@ def gen_start_setting_card_atlas(config: Config):
             startInfo = StartInfo(ID, (5,5), ferList, poisonList, stoneList)
             genImg = GenStartSettingCard(startInfo, config)
             genImgList.append(genImg)
+    return genImgList
 
+def gen_start_setting_card_raw(config: Config):
+    genImgList = GenStartSettingCardBatch(config)
+    outputDir = config.output_dir_with_version/ Path("startSettingRaw")
+    os.makedirs(outputDir, exist_ok=True)
+    count = 0
+    for genImg in genImgList:
+        count += 1
+        imgForceShaped = genImg.resize((684, 1044))
+        imgForceShaped.save(os.path.join(outputDir, "startSetting_{0}.png".format(count)))
+
+def gen_start_setting_card_atlas(config: Config):
+    genImgList = GenStartSettingCard(Config)
     backImg = Image.open(config.start_setting_path / "cardTemplate.png")
     atlasImg = PasteImageInTTSFormat(genImgList, backImg, cols=5, rows=4)
     output_dir = config.output_dir_with_version / Path("atlas") / Path("startSettingCard.png")
     atlasImg[0].save(output_dir)
 
 if __name__ == "__main__":
+    # startInfoTest = StartInfo(0, (5, 5), [0, 2, 8, 20, 24], [3, 16, 19], [23])
+    # GenStartSettingCard(startInfoTest, config)
+
+
     default_config_path = Config.get_default_config_path()
     config = Config(default_config_path)
-    startInfoTest = StartInfo(0, (5, 5), [0, 2, 8, 20, 24], [3, 16, 19], [23])
-    GenStartSettingCard(startInfoTest, config)
-    gen_start_setting_card_atlas(config)
+
+    # gen_start_setting_card_atlas(config)
+    gen_start_setting_card_raw(config)

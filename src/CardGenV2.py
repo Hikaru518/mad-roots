@@ -42,10 +42,10 @@ class GenModeEnum(Enum):
 
 class ImageInfo:
     def __init__(
-        self, type, classText, sunCost, coinCost, name, desciption, cardID, repeat_count
+        self, cardType, cardClass, sunCost, coinCost, name, desciption, cardID, repeat_count
     ):
-        self.type = type
-        self.classText = classText
+        self.cardType = cardType
+        self.cardClass = cardClass
         self.sunCost = sunCost
         self.coinCost = coinCost
         self.name = name
@@ -54,10 +54,18 @@ class ImageInfo:
         self.repeat_count = repeat_count
 
     @classmethod
-    def has_type(cls, type: str):
-        if type in ["化学", "机械", "巫术", "自然", "神秘"]:
+    def has_cardClass(cls, cardClass: str):
+        if cardClass in ["化学", "机械", "巫术", "自然", "神秘", "怪物", "常驻"]:
             return True
         return False
+
+    def classText(self):
+        if self.cardClass == "常驻":
+            return self.cardClass + " - " + self.cardType
+        elif self.cardType == "怪物":
+            return "怪物"
+        else:
+            return self.cardClass + " - " + self.cardType
 
 
 def GenImage(info: ImageInfo, outputDir: str, config: Config):
@@ -77,66 +85,93 @@ def GenImage(info: ImageInfo, outputDir: str, config: Config):
             DrawText(line, fontsize, (xy[0], y_text), colorRGB, anchor)
             y_text += height * 1.25
 
-    templateCode = info.type
-    if not ImageInfo.has_type(info.type):
-        templateCode = "通用"
+    templateCode = info.cardClass
+    if not ImageInfo.has_cardClass(info.cardClass):
+        templateCode = "常驻"
+    if info.cardClass == "常驻" and info.cardType == "怪物":
+        templateCode = "怪物"
     classTextColor = COLOR_MAP[templateCode]["classTextColor"]
     descriptionColor = COLOR_MAP[templateCode]["descriptionColor"]
     cardNameColor = standardWhiteColor
 
-    templateCode = "自然"
+    #templateCode = "自然"
 
     cardTemplateFolder = Path(config.data_dir) / "CardTemplateV2"
-    templateDirL1 = cardTemplateFolder / "Market" / f"{templateCode}L1.png"
-    templateDirL2 = cardTemplateFolder / "Market" / f"{templateCode}L2.png"
+    bottomLayerDir = cardTemplateFolder / "Template" / "BottomLayer.png"
+    templateDirL1 = cardTemplateFolder / "Template" / f"{templateCode}_Bg.png"
+    if templateCode == "怪物":
+        templateDirL2 = cardTemplateFolder / "Template" / f"{templateCode}.png"
+    else:
+        if info.cardType == "设备":
+            templateDirL2 = cardTemplateFolder / "Template" / f"{templateCode}_Facility.png"
+        else:
+            templateDirL2 = cardTemplateFolder / "Template" / f"{templateCode}_Action.png"
 
-    # Layer 1 底板
-    img = Image.open(templateDirL1)
+    # bottomLayer 文字描述背景色
+    img = Image.open(bottomLayerDir)
     draw = ImageDraw.Draw(img)
 
+    # Layer 1 插图背景色
+    templateL1 = Image.open(templateDirL1)
+    img.paste(templateL1, (0, 0), mask=templateL1)
+
     # 卡牌插图
-    fullIconDir = str(config.data_dir / f"CardIcon/{info.cardID}.png")
-    if os.path.exists(fullIconDir):
-        cardIcon = Image.open(fullIconDir)
-        cmx, cmy = cardIcon.size
-        img.paste(cardIcon, (348 - cmx // 2, 350 - cmy // 2), mask=cardIcon)
+    fullImageDir = cardTemplateFolder / "Image" / f"{info.cardID}.png"
+    #print(fullImageDir)
+    if os.path.exists(fullImageDir):
+        cardImage = Image.open(fullImageDir)
+        cmx, cmy = cardImage.size
+
+        ''' 临时调整图像大小 '''
+        if cmx == 697:   #宽度=697 被认为是尺寸合适的图 不再调整
+            img.paste(cardImage, (0, 0), mask=cardImage)
+        elif cmx >= 900 or cmy >= 700:
+            cardImage = cardImage.resize((int(cmx * 0.43), int(cmy * 0.43)))
+            cmx, cmy = cardImage.size
+            img.paste(cardImage, (348 - cmx // 2, 15), mask=cardImage)
+        else:
+            cardImage = cardImage.resize((int(cmx * 0.88), int(cmy * 0.88)))
+            cmx, cmy = cardImage.size
+            img.paste(cardImage, (348 - cmx // 2, 350 - cmy // 2), mask=cardImage)
     else:
         pass
 
-    # Layer 2 底板
+    # Layer 2 卡牌外框
     templateL2 = Image.open(templateDirL2)
     img.paste(templateL2, (0, 0), mask=templateL2)
 
     # classIcon
     classIconDir = cardTemplateFolder / "Icon" / f"{templateCode}.png"
     classIcon = Image.open(classIconDir)
-    img.paste(classIcon, (38, 36), mask=classIcon)
+    cmx, cmy = classIcon.size
+    img.paste(classIcon, (66 - cmx // 2, 67 - cmy // 2), mask=classIcon)
 
     # classText
-    DrawText(info.classText, 40, (100, 48), classTextColor, "lt")
+    DrawText(info.classText(), 38, (103, 48), classTextColor, "lt")
 
     if int(info.sunCost) > 0:  # sunCost
         costIconDir = cardTemplateFolder / "Icon" / "阳光.png"
         costIcon = Image.open(costIconDir)
         cmx, cmy = costIcon.size
-        img.paste(costIcon, (540, 44), mask=costIcon)
-        DrawText(info.sunCost, 50, (588, 97), classTextColor, "mm")
+        img.paste(costIcon, (525, 36), mask=costIcon)
+        DrawText(info.sunCost, 55, (590, 99), standardBlackColor, "mm")
     else:  # coinCost
         costIconDir = cardTemplateFolder / "Icon" / "银币.png"
         costIcon = Image.open(costIconDir)
         cmx, cmy = costIcon.size
-        img.paste(costIcon, (540, 44), mask=costIcon)
-        DrawText(info.coinCost, 50, (588, 97), classTextColor, "mm")
+        img.paste(costIcon, (537, 41), mask=costIcon)
+        DrawText(info.coinCost, 55, (590, 99), standardBlackColor, "mm")
 
     # name
-    DrawText(info.name, 60, (348, 602), cardNameColor, "mm")
+    DrawText(info.name, 60, (348, 598), cardNameColor, "mm")
 
     # discription
-    DrawMultilineText(info.description, 42, (95, 723), descriptionColor, "lm")
+    DrawMultilineText(info.description, 42, (95, 706), descriptionColor, "lm")
 
     # 保存图片
     if outputDir:
-        img.save(outputDir)
+        imgForceShaped = img.resize((684, 1044))
+        imgForceShaped.save(outputDir)
     return img
 
 
@@ -160,7 +195,7 @@ class ImageConverter(object):
         elif self.GEN_MODE == GenModeEnum.TTS.value:
             self.generate_tts(image_info_list, initialDeckDict)
         elif self.GEN_MODE == GenModeEnum.RAW.value:
-            self.generate_raw_card(image_info_list)
+            self.generate_raw_card(image_info_list, initialDeckDict)
         else:
             print(f"GEN_MODE = {self.GEN_MODE}")
             raise Exception("Error: GEN_MODE must be one of ttsde/tts/raw")
@@ -168,6 +203,10 @@ class ImageConverter(object):
     def generate_tts_deck_editor(
         self, image_info_list: List[ImageInfo], initialDeckDict: dict
     ):
+        # create output dir
+        if not os.path.exists(self.OUTPUT_DIR):
+            os.mkdir(self.OUTPUT_DIR)
+
         # init output dir
         if not os.path.exists(os.path.join(self.OUTPUT_DIR, "market")):
             os.mkdir(os.path.join(self.OUTPUT_DIR, "market"))
@@ -182,7 +221,7 @@ class ImageConverter(object):
             file_name = "{0:0>2}x card_{1}.png".format(
                 image_info.repeat_count, image_info.cardID
             )
-            if image_info.type == "常驻":
+            if image_info.cardClass == "常驻":
                 outputDir = os.path.join(output_dir_root, "onBoard", file_name)
             else:
                 outputDir = os.path.join(output_dir_root, "market", file_name)
@@ -215,12 +254,17 @@ class ImageConverter(object):
         imgListMarket = []
         imgListOnBoard = []
         imgListInitial = []
+
+        # create output dir
+        if not os.path.exists(self.OUTPUT_DIR):
+            os.mkdir(self.OUTPUT_DIR)
+
         if not os.path.exists(os.path.join(self.OUTPUT_DIR, "atlas")):
             os.mkdir(os.path.join(self.OUTPUT_DIR, "atlas"))
 
         for image_info in image_info_list:
             image = GenImage(image_info, "", self.config)
-            if image_info.type == "常驻":
+            if image_info.cardClass == "常驻":
                 for _ in range(image_info.repeat_count):
                     imgListOnBoard.append(image)
             else:
@@ -257,7 +301,13 @@ class ImageConverter(object):
         print("3/3")
         print("拼接完成")
 
-    def generate_raw_card(self, image_info_list: List[ImageInfo]):
+    def generate_raw_card(self, image_info_list: List[ImageInfo], initialDeckDict: dict, playerCount = 3):
+        if not os.path.exists(self.OUTPUT_DIR):
+            os.mkdir(self.OUTPUT_DIR)
+
+        if not os.path.exists(os.path.join(self.OUTPUT_DIR, "cardRaw")):
+            os.mkdir(os.path.join(self.OUTPUT_DIR, "cardRaw"))
+
         for image_info in image_info_list:
             for i in range(image_info.repeat_count):
                 outputDir = os.path.join(
@@ -266,6 +316,15 @@ class ImageConverter(object):
                     "card_{0}_{1}.png".format(image_info.cardID, i + 1),
                 )
                 GenImage(image_info, outputDir, self.config)
+
+            if image_info.cardID in initialDeckDict.keys():
+                for i in range(playerCount * initialDeckDict[image_info.cardID]):
+                    initialCardOutputDir = os.path.join(
+                        self.OUTPUT_DIR,
+                        "cardRaw",
+                        "cardInitial_{0}_{1}.png".format(image_info.cardID, i + 1),
+                    )
+                    GenImage(image_info, initialCardOutputDir, self.config)
 
     def __get_deck_dict(self) -> dict:
         config = self.config
@@ -296,8 +355,8 @@ class ImageConverter(object):
             for row in reader:
                 # 处理每一行数据 type, classText, sunCost, coinCost, name, desciption, cardID
                 print("{0} {1}".format(completed, row))
-                type = row[2]
-                classText = row[2] + " - " + row[1]
+                cardType = row[1]
+                cardClass = row[2]
                 sunCost = row[4]
                 coinCost = row[3]
                 name = row[0]
@@ -305,8 +364,8 @@ class ImageConverter(object):
                 repeatCount = int(row[6])
                 cardID = int(row[7])
                 imageInfo = ImageInfo(
-                    type,
-                    classText,
+                    cardType,
+                    cardClass,
                     sunCost,
                     coinCost,
                     name,
@@ -315,6 +374,7 @@ class ImageConverter(object):
                     repeatCount,
                 )
                 result.append(imageInfo)
+                completed += 1
 
         return result
 

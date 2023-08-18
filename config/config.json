@@ -6,7 +6,7 @@
     "input_event_csv_filename": "eventInfo.csv",
     "initial_deck_setting": "initialDeck.txt",
     "cardback_file_name": "back.png",
-    "version": "v0.10.3",
+    "version": "v0.12.2(TTS)",
     "ttf": "Chusung.ttf",
 
     "start_setting_path": "StartSetting",
