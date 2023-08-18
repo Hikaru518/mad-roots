@@ -3,7 +3,7 @@ from typing import Dict
 from pathlib import Path
 from PIL import Image, ImageFont
 import os
-
+from watermark.watermark import WaterMark, get_alldirectories
 
 def read_json(file_path: str) -> Dict:
     with open(file_path, "r") as f:
@@ -103,3 +103,39 @@ def PasteImageInTTSFormat(fullImgList, backImg, cols=10, rows=7):
         batchImg = PasteBatch(imgList, backImg, cols, rows)
         batchImgList.append(batchImg)
     return batchImgList
+
+
+class WaterMarkProcess(object):
+    def __init__(self, config_file_path: str = "") -> None:
+        if config_file_path == "":
+            current_file_path = Path(os.path.abspath(__file__))
+            config_path = current_file_path.parent.parent / "config/watermark.json"
+            self.wm = WaterMark(str(config_path))
+        else:
+            self.wm = WaterMark(config_file_path)
+
+    def add_walk_dir(self, input_dir: str, out_dir: str) -> None:
+        input_directory = str(Path(input_dir).absolute())
+        output_directory = str(Path(out_dir).absolute())
+        all_directories = get_alldirectories(input_directory)
+        for directory in all_directories:
+            subdirectory = os.path.join(input_directory, directory)
+            print("looking into " + subdirectory)
+            for file in os.listdir(subdirectory):
+                if file.endswith("/"):
+                    continue
+                self.wm.add_watermark(
+                    file,
+                    os.path.join(input_directory, directory),
+                    os.path.join(output_directory, directory),
+                )
+
+    def add_single_file(self, input_file: str, output_file: str):
+        file_name = str(Path(input_file).name)
+        input_dir = str(Path(input_file).parent)
+        output_dir = str(Path(output_file).parent)
+        self.wm.add_watermark(
+            file_name,
+            input_dir,
+            output_dir,
+        )
