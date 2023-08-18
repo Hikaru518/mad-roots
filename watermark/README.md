@@ -5,7 +5,7 @@ Install blind_watermark
 pip install blind-watermark
 ```
 ## add watermark
-1. Modify watermark.json
+1. Modify `watermark.json`
 2. Under water mark directory
 ```bash
 python3 -m watermark --add input_directory/ --out output_directory/

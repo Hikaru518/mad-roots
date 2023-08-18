@@ -63,7 +63,7 @@ class WaterMark(object):
         watermark = self._water_mark_text
         self.bwm.read_wm(watermark, mode="str")
         # embed the watermark
-        output_img = os.path.join(output, file)
+        output_img = os.path.join(output, f"wm_{file}")
         self.bwm.embed(output_img)
         len_wm = len(self.bwm.wm_bit)
 
