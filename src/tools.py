@@ -131,11 +131,21 @@ class WaterMarkProcess(object):
                 )
 
     def add_single_file(self, input_file: str, output_file: str):
-        file_name = str(Path(input_file).name)
-        input_dir = str(Path(input_file).parent)
-        output_dir = str(Path(output_file).parent)
+        file_name = str(Path(input_file).absolute().name)
+        input_dir = str(Path(input_file).absolute().parent)
+        output_dir = str(Path(output_file).absolute().parent)
         self.wm.add_watermark(
             file_name,
             input_dir,
             output_dir,
         )
+
+    def add_wm(self, input_image: Image) -> Image:
+        return self.wm.get_water_marked_pil_image(input_image)
+
+    def extract_wm_from_pil_image(self, input_image:Image, wm_length:int) -> str:
+        return self.wm.extract_from_pil_image(input_image, wm_length)
+    
+    def extract_wm_from_file(self, file_name: str, wm_length: int) -> str:
+        img = Image.open(file_name)
+        return self.wm.extract_from_pil_image(img, wm_length)
