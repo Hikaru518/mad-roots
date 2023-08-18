@@ -70,9 +70,7 @@ def ConvertFolderToJpeg(inputDir, outputDir):
                 ConvertToCMYK(inputPath, outputPath)
 
 if __name__ == "__main__":
-    # INPUT_DIR = "D:/MadRoots/Repository/mad-roots/output/v0.12.2(Dicecon)/cardRaw"
-    # OUTPUT_DIR = "D:/MadRoots/Repository/mad-roots/output/v0.12.2(Dicecon)/cardRawCMYK"
 
-    INPUT_DIR = "G:/MadRoots/Dicecon版本/a"
-    OUTPUT_DIR = "G:/MadRoots/Dicecon版本/aCMYK"
+    INPUT_DIR = "your_input_dir"
+    OUTPUT_DIR = "your_output_dir"
     ConvertFolderToJpeg(INPUT_DIR, OUTPUT_DIR)
