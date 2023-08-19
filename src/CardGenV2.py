@@ -170,7 +170,7 @@ def GenImage(info: ImageInfo, outputDir: str, config: Config):
     # discription
     DrawMultilineText(info.description, 42, (95, 706), descriptionColor, "lm")
 
-    if (config.watermark):
+    if config.watermark:
         t = time.time()
         wmp = WaterMarkProcess()
         img = wmp.add_wm(img)
@@ -313,19 +313,16 @@ class ImageConverter(object):
                     self.OUTPUT_DIR, "wm_atlas", "wm_market_{0}.png".format(i + 1)
                 )
                 batchimgListMarket[i].save(outputDir)
-            print("1/3")
             for i in range(len(batchimgListOnBoard)):
                 outputDir = os.path.join(
                     self.OUTPUT_DIR, "wm_atlas", "wm_onBoard_{0}.png".format(i + 1)
                 )
                 batchimgListOnBoard[i].save(outputDir)
-            print("2/3")
             for i in range(len(batchimgListInitial)):
                 outputDir = os.path.join(
                     self.OUTPUT_DIR, "wm_atlas", "wm_initialDeck_{0}.png".format(i + 1)
                 )
                 batchimgListInitial[i].save(outputDir)
-            print("3/3")
             print("拼接完成")
         else:
             for i in range(len(batchimgListMarket)):
@@ -333,19 +330,16 @@ class ImageConverter(object):
                     self.OUTPUT_DIR, "atlas", "market_{0}.png".format(i + 1)
                 )
                 batchimgListMarket[i].save(outputDir)
-            print("1/3")
             for i in range(len(batchimgListOnBoard)):
                 outputDir = os.path.join(
                     self.OUTPUT_DIR, "atlas", "onBoard_{0}.png".format(i + 1)
                 )
                 batchimgListOnBoard[i].save(outputDir)
-            print("2/3")
             for i in range(len(batchimgListInitial)):
                 outputDir = os.path.join(
                     self.OUTPUT_DIR, "atlas", "initialDeck_{0}.png".format(i + 1)
                 )
                 batchimgListInitial[i].save(outputDir)
-            print("3/3")
             print("拼接完成")
 
     def generate_raw_card(self, image_info_list: List[ImageInfo], initialDeckDict: dict, playerCount = 3):
