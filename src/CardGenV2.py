@@ -9,6 +9,8 @@ from src.tools import Config, PasteImageInTTSFormat
 from src.ColorMap import COLOR_MAP
 from enum import Enum
 from typing import List
+from tools import WaterMarkProcess
+import time
 
 ############################################
 # GEN_MODE:
@@ -168,10 +170,18 @@ def GenImage(info: ImageInfo, outputDir: str, config: Config):
     # discription
     DrawMultilineText(info.description, 42, (95, 706), descriptionColor, "lm")
 
+    if config.watermark:
+        t = time.time()
+        wmp = WaterMarkProcess()
+        img = wmp.add_wm(img)
+        dt = time.time() - t
+        print("Add waterMark time = {0:.2f}ms".format(1000 * dt))
+
     # 保存图片
     if outputDir:
-        imgForceShaped = img.resize((684, 1044))
-        imgForceShaped.save(outputDir)
+        img.save(outputDir)
+        # imgForceShaped = img.resize((684, 1044))
+        # imgForceShaped.save(outputDir)
     return img
 
 
@@ -218,9 +228,11 @@ class ImageConverter(object):
         # generate card
         for image_info in image_info_list:
             output_dir_root = self.OUTPUT_DIR
-            file_name = "{0:0>2}x card_{1}.png".format(
-                image_info.repeat_count, image_info.cardID
-            )
+            if self.config.watermark:
+                file_name = "{0:0>2}x wm_card_{1}.png".format(image_info.repeat_count, image_info.cardID)
+            else:
+                file_name = "{0:0>2}x card_{1}.png".format(image_info.repeat_count, image_info.cardID)
+
             if image_info.cardClass == "常驻":
                 outputDir = os.path.join(output_dir_root, "onBoard", file_name)
             else:
@@ -230,13 +242,22 @@ class ImageConverter(object):
 
             # 生成初始卡组
             if image_info.cardID in initialDeckDict.keys():
-                outputDir = os.path.join(
-                    self.OUTPUT_DIR,
-                    "initialDeck",
-                    "{0:0>2}x card_{1}.png".format(
-                        initialDeckDict[image_info.cardID], image_info.cardID
-                    ),
-                )
+                if self.config.watermark:
+                    outputDir = os.path.join(
+                        self.OUTPUT_DIR,
+                        "initialDeck",
+                        "{0:0>2}x wm_card_{1}.png".format(
+                            initialDeckDict[image_info.cardID], image_info.cardID
+                        ),
+                    )
+                else:
+                    outputDir = os.path.join(
+                        self.OUTPUT_DIR,
+                        "initialDeck",
+                        "{0:0>2}x card_{1}.png".format(
+                            initialDeckDict[image_info.cardID], image_info.cardID
+                        ),
+                    )
                 GenImage(image_info, outputDir, self.config)
 
         copyfile(
@@ -259,8 +280,12 @@ class ImageConverter(object):
         if not os.path.exists(self.OUTPUT_DIR):
             os.mkdir(self.OUTPUT_DIR)
 
-        if not os.path.exists(os.path.join(self.OUTPUT_DIR, "atlas")):
-            os.mkdir(os.path.join(self.OUTPUT_DIR, "atlas"))
+        if self.config.watermark:
+            if not os.path.exists(os.path.join(self.OUTPUT_DIR, "wm_atlas")):
+                os.mkdir(os.path.join(self.OUTPUT_DIR, "wm_atlas"))
+        else:
+            if not os.path.exists(os.path.join(self.OUTPUT_DIR, "atlas")):
+                os.mkdir(os.path.join(self.OUTPUT_DIR, "atlas"))
 
         for image_info in image_info_list:
             image = GenImage(image_info, "", self.config)
@@ -281,50 +306,75 @@ class ImageConverter(object):
         batchimgListMarket = PasteImageInTTSFormat(imgListMarket, backImg, 10, 7)
         batchimgListOnBoard = PasteImageInTTSFormat(imgListOnBoard, backImg, 10, 7)
         batchimgListInitial = PasteImageInTTSFormat(imgListInitial, backImg, 10, 7)
-        for i in range(len(batchimgListMarket)):
-            outputDir = os.path.join(
-                self.OUTPUT_DIR, "atlas", "market_{0}.png".format(i + 1)
-            )
-            batchimgListMarket[i].save(outputDir)
-        print("1/3")
-        for i in range(len(batchimgListOnBoard)):
-            outputDir = os.path.join(
-                self.OUTPUT_DIR, "atlas", "onBoard_{0}.png".format(i + 1)
-            )
-            batchimgListOnBoard[i].save(outputDir)
-        print("2/3")
-        for i in range(len(batchimgListInitial)):
-            outputDir = os.path.join(
-                self.OUTPUT_DIR, "atlas", "initialDeck_{0}.png".format(i + 1)
-            )
-            batchimgListInitial[i].save(outputDir)
-        print("3/3")
-        print("拼接完成")
+
+        if self.config.watermark:
+            for i in range(len(batchimgListMarket)):
+                outputDir = os.path.join(
+                    self.OUTPUT_DIR, "wm_atlas", "wm_market_{0}.png".format(i + 1)
+                )
+                batchimgListMarket[i].save(outputDir)
+            for i in range(len(batchimgListOnBoard)):
+                outputDir = os.path.join(
+                    self.OUTPUT_DIR, "wm_atlas", "wm_onBoard_{0}.png".format(i + 1)
+                )
+                batchimgListOnBoard[i].save(outputDir)
+            for i in range(len(batchimgListInitial)):
+                outputDir = os.path.join(
+                    self.OUTPUT_DIR, "wm_atlas", "wm_initialDeck_{0}.png".format(i + 1)
+                )
+                batchimgListInitial[i].save(outputDir)
+            print("拼接完成")
+        else:
+            for i in range(len(batchimgListMarket)):
+                outputDir = os.path.join(
+                    self.OUTPUT_DIR, "atlas", "market_{0}.png".format(i + 1)
+                )
+                batchimgListMarket[i].save(outputDir)
+            for i in range(len(batchimgListOnBoard)):
+                outputDir = os.path.join(
+                    self.OUTPUT_DIR, "atlas", "onBoard_{0}.png".format(i + 1)
+                )
+                batchimgListOnBoard[i].save(outputDir)
+            for i in range(len(batchimgListInitial)):
+                outputDir = os.path.join(
+                    self.OUTPUT_DIR, "atlas", "initialDeck_{0}.png".format(i + 1)
+                )
+                batchimgListInitial[i].save(outputDir)
+            print("拼接完成")
 
     def generate_raw_card(self, image_info_list: List[ImageInfo], initialDeckDict: dict, playerCount = 3):
         if not os.path.exists(self.OUTPUT_DIR):
             os.mkdir(self.OUTPUT_DIR)
 
-        if not os.path.exists(os.path.join(self.OUTPUT_DIR, "cardRaw")):
-            os.mkdir(os.path.join(self.OUTPUT_DIR, "cardRaw"))
+        if self.config.watermark:
+            if not os.path.exists(os.path.join(self.OUTPUT_DIR, "wm_cardRaw")):
+                os.mkdir(os.path.join(self.OUTPUT_DIR, "wm_cardRaw"))
+        else:
+            if not os.path.exists(os.path.join(self.OUTPUT_DIR, "cardRaw")):
+                os.mkdir(os.path.join(self.OUTPUT_DIR, "cardRaw"))
 
         for image_info in image_info_list:
             for i in range(image_info.repeat_count):
-                outputDir = os.path.join(
-                    self.OUTPUT_DIR,
-                    "cardRaw",
-                    "card_{0}_{1}.png".format(image_info.cardID, i + 1),
-                )
+                if self.config.watermark:
+                    outputDir = os.path.join(self.OUTPUT_DIR, "wm_cardRaw",
+                                             "wm_card_{0}_{1}.png".format(image_info.cardID, i + 1))
+                else:
+                    outputDir = os.path.join(self.OUTPUT_DIR, "cardRaw",
+                                             "card_{0}_{1}.png".format(image_info.cardID, i + 1))
                 GenImage(image_info, outputDir, self.config)
 
             if image_info.cardID in initialDeckDict.keys():
                 for i in range(playerCount * initialDeckDict[image_info.cardID]):
-                    initialCardOutputDir = os.path.join(
-                        self.OUTPUT_DIR,
-                        "cardRaw",
-                        "cardInitial_{0}_{1}.png".format(image_info.cardID, i + 1),
-                    )
+                    if self.config.watermark:
+                        initialCardOutputDir = os.path.join(self.OUTPUT_DIR, "wm_cardRaw",
+                                                            "wm_cardInitial_{0}_{1}.png".format(image_info.cardID,
+                                                                                                i + 1))
+                    else:
+                        initialCardOutputDir = os.path.join(self.OUTPUT_DIR, "cardRaw",
+                                                            "cardInitial_{0}_{1}.png".format(image_info.cardID,
+                                                                                                i + 1))
                     GenImage(image_info, initialCardOutputDir, self.config)
+
 
     def __get_deck_dict(self) -> dict:
         config = self.config

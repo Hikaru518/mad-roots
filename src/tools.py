@@ -34,6 +34,8 @@ class Config(object):
 
         self.ttf = config_data["ttf"]
 
+        self.watermark = config_data["watermark"]
+
         # start settings
         self.start_setting_path = self.data_dir / config_data["start_setting_path"]
 
@@ -130,7 +132,30 @@ class WaterMarkProcess(object):
                     os.path.join(output_directory, directory),
                 )
 
+
+    def add_walk_dir_new(self, input_dir: str, out_dir: str) -> None:
+        count = 0
+        os.makedirs(out_dir, exist_ok=True)
+        for root, dirs, files in os.walk(input_dir):
+            for file in files:
+                # 检查文件扩展名是否为.png
+                if file.lower().endswith('.png'):
+                    count += 1
+                    root_abs = os.path.abspath(root)
+                    inputPath = os.path.join(root_abs, file)
+
+                    relativePath = os.path.relpath(inputPath, input_dir)
+                    outputPath = os.path.join(out_dir, relativePath)
+                    output_dir = str(Path(outputPath).absolute().parent)
+
+                    if not os.path.exists(os.path.dirname(outputPath)):
+                        os.makedirs(os.path.dirname(outputPath), exist_ok=True)
+
+                    # print("{0} , {1} => {2}".format(root, file, output_dir))
+                    self.wm.add_watermark(file, root_abs, output_dir)
+
     def add_single_file(self, input_file: str, output_dir: str):
+
         file_name = str(Path(input_file).absolute().name)
         input_dir = str(Path(input_file).absolute().parent)
         output_dir = str(Path(output_dir).absolute())
