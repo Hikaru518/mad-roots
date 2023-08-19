@@ -34,7 +34,7 @@ class Config(object):
 
         self.ttf = config_data["ttf"]
 
-        self.watermark = bool(config_data["watermark"])
+        self.watermark = config_data["watermark"]
 
         # start settings
         self.start_setting_path = self.data_dir / config_data["start_setting_path"]
