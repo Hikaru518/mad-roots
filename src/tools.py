@@ -132,6 +132,7 @@ class WaterMarkProcess(object):
                     os.path.join(output_directory, directory),
                 )
 
+
     def add_walk_dir_new(self, input_dir: str, out_dir: str) -> None:
         count = 0
         os.makedirs(out_dir, exist_ok=True)
@@ -153,10 +154,17 @@ class WaterMarkProcess(object):
                     # print("{0} , {1} => {2}".format(root, file, output_dir))
                     self.wm.add_watermark(file, root_abs, output_dir)
 
-    def add_single_file(self, input_file: str, output_file: str):
+    def add_single_file(self, input_file: str, output_dir: str):
+
         file_name = str(Path(input_file).absolute().name)
         input_dir = str(Path(input_file).absolute().parent)
-        output_dir = str(Path(output_file).absolute().parent)
+        output_dir = str(Path(output_dir).absolute())
+        if not Path(input_file).is_file():
+            raise Exception("Not a valid file path: {}".format(input_file))
+
+        if not Path(output_dir).is_dir():
+            raise Exception("Not a valid dir path: {}".format(output_dir))
+        
         self.wm.add_watermark(
             file_name,
             input_dir,
