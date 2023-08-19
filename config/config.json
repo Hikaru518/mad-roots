@@ -1,7 +1,7 @@
 {
     "GEN_MODE": "tts",
 
-    "data_dir": "../mad-roots/data",
+    "data_dir": "../data",
     "input_csv_filename": "cardInfo.csv",
     "input_event_csv_filename": "eventInfo.csv",
     "initial_deck_setting": "initialDeck.txt",
@@ -11,7 +11,7 @@
 
     "start_setting_path": "StartSetting",
 
-    "output_dir": "../mad-roots/output",
+    "output_dir": "../output",
 
-    "watermark": "True"
+    "watermark": true
 }
