@@ -4,7 +4,9 @@ import os
 import json
 from typing import Dict
 from pathlib import Path
-
+from PIL import Image
+import cv2
+import numpy
 
 def read_json(file_path: str) -> Dict:
     with open(file_path, "r") as f:
@@ -85,6 +87,36 @@ class WaterMark(object):
         # read the picture
         wm_extract = self.bwm.extract(file, wm_shape=watermark_length, mode="str")
         print("watermark is ", wm_extract)
+
+    def get_water_marked_pil_image(self, input_image: Image) -> Image:
+        # convert PIL image to cv2 image
+        numpy_image=numpy.array(input_image)  
+        img = cv2.cvtColor(numpy_image, cv2.COLOR_RGB2BGR)
+
+        self.bwm.read_img(img=img)
+        # read the watermark
+        watermark = self._water_mark_text
+        self.bwm.read_wm(watermark, mode="str")
+        # embed the watermark
+        embed_image = self.bwm.embed()
+
+        # convert cv2 image to PIL image
+        embed_image_mat = cv2.cvtColor(embed_image, cv2.COLOR_BGR2RGB)
+        embed_image_mat = embed_image_mat.astype(numpy.uint8)
+        res=Image.fromarray(embed_image_mat)
+
+        len_wm = len(self.bwm.wm_bit)
+        print(f"length of water mark is: {len_wm}")
+        return res
+
+    def extract_from_pil_image(self, input_image: Image, wm_length:int) -> str:
+        # convert PIL image to cv2 image
+        numpy_image=numpy.array(input_image)  
+        img = cv2.cvtColor(numpy_image, cv2.COLOR_RGB2BGR)
+
+        # extract the watermark
+        wm_extract = self.bwm.extract(embed_img=img, wm_shape=wm_length, mode="str")
+        return wm_extract
 
 
 if __name__ == "__main__":
