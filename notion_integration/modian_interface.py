@@ -13,13 +13,17 @@ def get_modian_star() -> int:
     """
     try:
         chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument("--headless")  # 无头模式，服务器没有图形界面这个必须
-        chrome_options.add_argument("--disable-gpu")  # 不需要gpu加速
-        chrome_options.add_argument("--no-sandbox")  # 这个配置很重要
+        chrome_options.add_argument("--headless")  
+        chrome_options.add_argument("--disable-gpu") 
+        chrome_options.add_argument("--no-sandbox")  
 
-        driver = webdriver.Chrome(
-            options=chrome_options
-        )  # 如果没有把chromedriver加入到PATH中，就需要指明路径
+        # USE THIS IN SERVER
+        # driver = webdriver.Chrome(
+        #     options=chrome_options
+        # ) 
+
+        driver = webdriver.Chrome()
+
         driver.get(modian_url)
         driver.implicitly_wait(5)
 
@@ -38,7 +42,3 @@ def get_modian_star() -> int:
         return -1
 
 
-if __name__ == "__main__":
-    print("1111")
-    star = get_modian_star()
-    print(star)
