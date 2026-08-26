@@ -1,0 +1,2 @@
+selenium==4.36.0
+notion-client==3.1.0
