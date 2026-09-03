@@ -1,4 +1,4 @@
-"""Scrape the public Modian idea page with a headless Chrome browser."""
+"""Scrape the optimistic-count metric from a public Modian crowdfunding page."""
 
 import logging
 import time
@@ -9,16 +9,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
 LOGGER = logging.getLogger(__name__)
-STAR_COUNT_SELECTOR = (
-    ".bottom_btn .total, "
-    ".project-type-address-bullish .pro-bullish .text"
-)
+CROWDFUNDING_STAR_COUNT_SELECTOR = ".appointment-people span[subscribe_count]"
 DEFAULT_WAIT_TIMEOUT_SECONDS = 30
 DEFAULT_RETRY_DELAYS_SECONDS = (5, 15)
 
 
-class ModianScrapeError(RuntimeError):
-    """Raised when the Modian count cannot be scraped after all attempts."""
+class ModianCrowdfundingScrapeError(RuntimeError):
+    """Raised when the crowdfunding count cannot be scraped after all attempts."""
 
 
 def _chrome_options() -> webdriver.ChromeOptions:
@@ -31,25 +28,20 @@ def _chrome_options() -> webdriver.ChromeOptions:
 
 
 def _parse_star_count(text: str) -> int:
-    normalized = "".join(text.split()).replace(",", "").removesuffix("人看好")
+    normalized = "".join(text.split()).replace(",", "")
     if not normalized or not normalized.isdecimal():
-        raise ValueError(f"Unexpected Modian star count: {text!r}")
+        raise ValueError(f"Unexpected Modian crowdfunding star count: {text!r}")
 
     star_count = int(normalized)
     if star_count < 0:
-        raise ValueError("Modian star count must be non-negative")
+        raise ValueError("Modian crowdfunding star count must be non-negative")
     return star_count
 
 
 def _loaded_star_count_text(driver: webdriver.Chrome):
-    for element in driver.find_elements(By.CSS_SELECTOR, STAR_COUNT_SELECTOR):
-        text = element.text.strip()
-        try:
-            _parse_star_count(text)
-        except ValueError:
-            continue
-        return text
-    return False
+    element = driver.find_element(By.CSS_SELECTOR, CROWDFUNDING_STAR_COUNT_SELECTOR)
+    text = element.text.strip()
+    return text if text else False
 
 
 def _scrape_once(url: str, wait_timeout_seconds: int) -> int:
@@ -69,14 +61,14 @@ def _scrape_once(url: str, wait_timeout_seconds: int) -> int:
                 LOGGER.exception("Failed to quit the Chrome driver cleanly")
 
 
-def get_modian_star(
+def get_modian_crowdfunding_star(
     url: str,
     wait_timeout_seconds: int = DEFAULT_WAIT_TIMEOUT_SECONDS,
     retry_delays_seconds: Sequence[int] = DEFAULT_RETRY_DELAYS_SECONDS,
 ) -> int:
-    """Return the current count, retrying each failure in a fresh browser."""
+    """Return the crowdfunding count, retrying each failure in a fresh browser."""
     if not url or not url.strip():
-        raise ValueError("Modian URL must not be empty")
+        raise ValueError("Modian crowdfunding URL must not be empty")
     if wait_timeout_seconds <= 0:
         raise ValueError("Wait timeout must be greater than zero")
 
@@ -86,13 +78,15 @@ def get_modian_star(
             return _scrape_once(url.strip(), wait_timeout_seconds)
         except Exception as error:
             if attempt == attempts:
-                raise ModianScrapeError(
-                    f"Failed to scrape Modian star count after {attempts} attempts"
+                raise ModianCrowdfundingScrapeError(
+                    "Failed to scrape Modian crowdfunding star count "
+                    f"after {attempts} attempts"
                 ) from error
 
             delay = retry_delays_seconds[attempt - 1]
             LOGGER.warning(
-                "Modian scrape attempt %s/%s failed; retrying in %s seconds: %s",
+                "Modian crowdfunding scrape attempt %s/%s failed; "
+                "retrying in %s seconds: %s",
                 attempt,
                 attempts,
                 delay,
