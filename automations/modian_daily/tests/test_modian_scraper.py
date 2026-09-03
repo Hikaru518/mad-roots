@@ -7,12 +7,11 @@ from automations.modian_daily import modian_scraper
 class ModianScraperTest(unittest.TestCase):
     def test_scrape_once_returns_count_and_quits_driver(self):
         driver = Mock()
-        element = Mock(text="1,032")
 
         with patch.object(
             modian_scraper.webdriver, "Chrome", return_value=driver
         ) as chrome, patch.object(modian_scraper, "WebDriverWait") as wait:
-            wait.return_value.until.return_value = element
+            wait.return_value.until.return_value = "1,032"
 
             result = modian_scraper._scrape_once(
                 "https://m.modian.com/idea/2951.html", 30
@@ -31,6 +30,9 @@ class ModianScraperTest(unittest.TestCase):
         )
         driver.get.assert_called_once_with("https://m.modian.com/idea/2951.html")
         wait.assert_called_once_with(driver, 30)
+        wait.return_value.until.assert_called_once_with(
+            modian_scraper._loaded_star_count_text
+        )
         driver.quit.assert_called_once_with()
 
     def test_scrape_once_quits_driver_when_page_parsing_fails(self):
@@ -40,7 +42,7 @@ class ModianScraperTest(unittest.TestCase):
         with patch.object(
             modian_scraper.webdriver, "Chrome", return_value=driver
         ), patch.object(modian_scraper, "WebDriverWait") as wait:
-            wait.return_value.until.return_value = element
+            wait.return_value.until.return_value = element.text
 
             with self.assertRaises(ValueError):
                 modian_scraper._scrape_once("https://example.com", 30)
@@ -64,6 +66,25 @@ class ModianScraperTest(unittest.TestCase):
         for value in ("", "   ", "unknown", "-1"):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 modian_scraper._parse_star_count(value)
+
+    def test_parse_star_count_accepts_redirected_project_page_text(self):
+        self.assertEqual(modian_scraper._parse_star_count("1,052人看好"), 1052)
+
+    def test_loaded_star_count_ignores_placeholder(self):
+        driver = Mock()
+        placeholder = Mock(text="--人看好")
+        driver.find_elements.return_value = [placeholder]
+
+        self.assertFalse(modian_scraper._loaded_star_count_text(driver))
+
+        placeholder.text = "1,052人看好"
+        self.assertEqual(
+            modian_scraper._loaded_star_count_text(driver), "1,052人看好"
+        )
+        driver.find_elements.assert_called_with(
+            modian_scraper.By.CSS_SELECTOR,
+            modian_scraper.STAR_COUNT_SELECTOR,
+        )
 
     def test_get_modian_star_retries_with_expected_delays(self):
         with patch.object(
